@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+venv/
+ENV/
+
+# Environment variables and secrets
+.env.*
+!.env.example
+
+# Node
+node_modules/
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+logging/
+npm-debug.log*
+
+# Build
+build/
+dist/
+*.egg-info/
+*.bak
+
+# System Files
+Thumbs.db
+.DS_Store
+
+# Environment
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Testing
+coverage/
+.coverage
+htmlcov/
+
+# Production
+/build
+
+# Miscellaneous
+*.swp
+*.swo
+~$*
+
+# Data, vector stores, and outputs
+chroma_db/
+faiss_index/
+vectorstore/
+generated_questions.json
+*.pdf
+PDF_Testing/
+sample_pdf/
+temp/
+blob
+recording.wav
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Office temp files
+~$*
+
+# Docker artifacts
+*.pid
+
+# PowerPoint/Word/Excel temp files
+~$*
+
+# Remove lock files if you don't want to track them
+# package-lock.json
+# yarn.lock
