@@ -164,7 +164,7 @@ def test_question_evaluation(vectorstore=None, texts=None):
                 "questionType": "MCQ",
                 "classGrade": "10",
                 "difficulty": "Hard",
-                "bloomLevel": "Understand",
+                "knowledgeDimension": "Understand",
                 "numQuestions": 2,
                 "additionalInstructions": ""
             }

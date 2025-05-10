@@ -7,8 +7,8 @@ interface TopicInput {
   questionType: string;
   difficulty: string;
   bloomLevel: string;
-  intelligenceType: string;
-  intelligenceSubType: string;
+  // intelligenceType: string;
+  // intelligenceSubType: string;
   numQuestions: string;
   additionalInstructions: string;
   noteId?: string;
@@ -26,42 +26,42 @@ const emptyTopic: TopicInput = {
   questionType: '',
   difficulty: '',
   bloomLevel: '',
-  intelligenceType: '',
-  intelligenceSubType: '',
+  // intelligenceType: '',
+  // intelligenceSubType: '',
   numQuestions: '',
   additionalInstructions: '',
   noteId: undefined
 };
 
-const intelligenceSubtypes = {
-  Logical: [
-    "Pattern solving", "Deductive reasoning", "Coding logic", "Data interpretation"
-  ],
-  Linguistic: [
-    "Storytelling", "Persuasive argument", "Vocabulary building", "Creative writing"
-  ],
-  Kinesthetic: [
-    "Gross motor (e.g., sports)", "Fine motor (e.g., drawing)", "Simulations"
-  ],
-  Spatial: [
-    "3D visualization", "Map reading", "Mental rotation", "Blueprint understanding"
-  ],
-  Musical: [
-    "Rhythm patterns", "Composition", "Tone recognition"
-  ],
-  Interpersonal: [
-    "Negotiation skills", "Group collaboration", "Empathy exercises"
-  ],
-  Intrapersonal: [
-    "Self-assessment", "Reflective writing", "Goal setting"
-  ],
-  Naturalistic: [
-    "Classification tasks", "Field observations", "Environmental problem-solving"
-  ]
-};
+// const intelligenceSubtypes = {
+//   Logical: [
+//     "Pattern solving", "Deductive reasoning", "Coding logic", "Data interpretation"
+//   ],
+//   Linguistic: [
+//     "Storytelling", "Persuasive argument", "Vocabulary building", "Creative writing"
+//   ],
+//   Kinesthetic: [
+//     "Gross motor (e.g., sports)", "Fine motor (e.g., drawing)", "Simulations"
+//   ],
+//   Spatial: [
+//     "3D visualization", "Map reading", "Mental rotation", "Blueprint understanding"
+//   ],
+//   Musical: [
+//     "Rhythm patterns", "Composition", "Tone recognition"
+//   ],
+//   Interpersonal: [
+//     "Negotiation skills", "Group collaboration", "Empathy exercises"
+//   ],
+//   Intrapersonal: [
+//     "Self-assessment", "Reflective writing", "Goal setting"
+//   ],
+//   Naturalistic: [
+//     "Classification tasks", "Field observations", "Environmental problem-solving"
+//   ]
+// };
 
 const App: React.FC = () => {
-  const { register, control, handleSubmit, setValue, watch } = useForm<FormInputs>({
+  const { register, control, handleSubmit } = useForm<FormInputs>({
     defaultValues: {
       subjectName: '',
       classGrade: '',
@@ -76,19 +76,24 @@ const App: React.FC = () => {
   });
 
   const [uploadingFiles, setUploadingFiles] = useState<{ [key: number]: boolean }>({});
+  const [analysing, setAnalysing] = useState(false);
+  const [analysisSuccess, setAnalysisSuccess] = useState(false);
+  const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
 
   // Watch intelligence type values for each topic
-  const topics = watch('topics');
+  // const topics = watch('topics');
 
-  const handleIntelligenceTypeChange = (index: number, value: string) => {
-    setValue(`topics.${index}.intelligenceType`, value);
-    // Reset subtype when type changes
-    setValue(`topics.${index}.intelligenceSubType`, '');
-  };
-
-  const handleIntelligenceSubTypeChange = (index: number, value: string) => {
-    setValue(`topics.${index}.intelligenceSubType`, value);
-  };
+  // Comment out intelligence level and number of questions for now
+  // const intelligenceLevel = formData.intelligenceLevel;
+  // const numQuestions = formData.numQuestions;
+  // const handleIntelligenceTypeChange = (index: number, value: string) => {
+  //   setValue(`topics.${index}.intelligenceType`, value);
+  //   // Reset subtype when type changes
+  //   setValue(`topics.${index}.intelligenceSubType`, '');
+  // };
+  // const handleIntelligenceSubTypeChange = (index: number, value: string) => {
+  //   setValue(`topics.${index}.intelligenceSubType`, value);
+  // };
 
   const handleFileUpload = async (file: File, topicIndex: number) => {
     if (!file) return;
@@ -120,6 +125,31 @@ const App: React.FC = () => {
     } finally {
       setUploadingFiles(prev => ({ ...prev, [topicIndex]: false }));
     }
+  };
+
+  const handleAnalyse = async () => {
+    setAnalysing(true);
+    setAnalysisSuccess(false);
+    setAnalysisMessage(null);
+    try {
+      const response = await fetch('/api/analyse-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note_id: fields[0].noteId }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setAnalysisSuccess(true);
+        setAnalysisMessage('Analysis complete!');
+      } else {
+        setAnalysisSuccess(false);
+        setAnalysisMessage(result.error || 'Analysis failed');
+      }
+    } catch (e) {
+      setAnalysisSuccess(false);
+      setAnalysisMessage('Analysis failed');
+    }
+    setAnalysing(false);
   };
 
   const onSubmit = async (data: FormInputs) => {
@@ -173,6 +203,43 @@ const App: React.FC = () => {
               <option value="Hindi">Hindi</option>
             </select>
           </div>
+          {/* Centralized PDF upload section */}
+          <div className="form-group">
+            <label>Upload Notes (PDF)</label>
+            <div className="file-upload-container" style={{ display: 'flex', alignItems: 'center' }}>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    handleFileUpload(file, 0);
+                  }
+                }}
+                disabled={uploadingFiles[0]}
+                style={{ display: 'none' }}
+                id="file-upload-central"
+              />
+              <label htmlFor="file-upload-central" className="file-upload-button">
+                {uploadingFiles[0] ? 'Uploading...' : 'Choose File'}
+              </label>
+              {fields[0].noteId && (
+                <span className="file-upload-success">✓ File uploaded successfully</span>
+              )}
+              <button
+                type="button"
+                onClick={handleAnalyse}
+                disabled={!fields[0].noteId || analysing}
+                style={{ marginLeft: 10 }}
+              >
+                {analysing ? 'Analysing...' : 'Analyse'}
+              </button>
+              {analysisMessage && (
+                <span style={{ color: analysisSuccess ? 'green' : 'red', marginLeft: 8 }}>{analysisMessage}</span>
+              )}
+            </div>
+          </div>
+          {/* End Centralized PDF upload section */}
         </div>
         {/* Topics Section */}
         <div className="topics-section">
@@ -204,7 +271,7 @@ const App: React.FC = () => {
                 </select>
               </div>
               <div className="form-group">
-                <label>Bloom's Level *</label>
+                <label>Knowledge Dimension*</label>
                 <select {...register(`topics.${index}.bloomLevel`, { required: true })}>
                   <option value="">Select Level</option>
                   <option value="Remember">Remember</option>
@@ -215,7 +282,8 @@ const App: React.FC = () => {
                   <option value="Create">Create</option>
                 </select>
               </div>
-              <div className="form-group">
+              {/* Comment out intelligence level and number of questions for now */}
+              {/* <div className="form-group">
                 <label>Intelligence Type *</label>
                 <select
                   {...register(`topics.${index}.intelligenceType`, { required: true })}
@@ -227,7 +295,6 @@ const App: React.FC = () => {
                   ))}
                 </select>
               </div>
-
               {topics[index]?.intelligenceType && (
                 <div className="form-group">
                   <label>Intelligence SubType *</label>
@@ -241,8 +308,7 @@ const App: React.FC = () => {
                     ))}
                   </select>
                 </div>
-              )}
-
+              )} */}
               <div className="form-group">
                 <label>Number of Questions *</label>
                 <input
@@ -250,36 +316,12 @@ const App: React.FC = () => {
                   {...register(`topics.${index}.numQuestions`, { required: true, min: 1, max: 5 })}
                 />
                 <div className="input-note">
-                  Note: Maximum 5 questions per topic due to AI processing limits. Generation may take 10-15 seconds.
+                  Note: Maximum 3 questions per topic due to AI processing limits. Generation may take 10-15 seconds.
                 </div>
               </div>
               <div className="form-group">
                 <label>Additional Instructions</label>
                 <textarea {...register(`topics.${index}.additionalInstructions`)} />
-              </div>
-              <div className="form-group">
-                <label>Upload Notes (PDF)</label>
-                <div className="file-upload-container">
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleFileUpload(file, index);
-                      }
-                    }}
-                    disabled={uploadingFiles[index]}
-                    style={{ display: 'none' }}
-                    id={`file-upload-${index}`}
-                  />
-                  <label htmlFor={`file-upload-${index}`} className="file-upload-button">
-                    {uploadingFiles[index] ? 'Uploading...' : 'Choose File'}
-                  </label>
-                  {fields[index].noteId && (
-                    <span className="file-upload-success">✓ File uploaded successfully</span>
-                  )}
-                </div>
               </div>
               {index > 0 && (
                 <button type="button" onClick={() => remove(index)}>
