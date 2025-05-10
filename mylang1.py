@@ -102,11 +102,23 @@ class QuestionGenerator:
         """Generate questions based on topic data and vector store context"""
         try:
             # Get relevant context from vectorstore
-            relevant_docs = vectorstore.similarity_search(
-                f"{topic_data['subjectName']} {topic_data['sectionName']}",
-                k=3
-            )
-            context = "\n".join([doc.page_content for doc in relevant_docs])
+            # relevant_docs = vectorstore.similarity_search(
+            #     f"{topic_data['subjectName']} {topic_data['sectionName']}",
+            #     k=3
+            # )
+
+            query = f"{topic_data['subjectName']} {topic_data['sectionName']} Grade {topic_data['classGrade']} Bloom level {topic_data['bloomLevel']}"
+            relevant_docs = vectorstore.similarity_search(query, k=5)
+
+
+            #context = "\n".join([doc.page_content for doc in relevant_docs])
+
+
+            from langchain.chains.summarize import load_summarize_chain
+            summarizer = load_summarize_chain(llm=self.llm, chain_type="stuff")
+            summary = summarizer.run(relevant_docs)
+
+            context = summary
             
             # Generate questions
             response = self.chain.invoke({

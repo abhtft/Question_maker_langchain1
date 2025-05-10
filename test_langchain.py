@@ -2,6 +2,7 @@ import os
 import json
 from mylang1 import DocumentProcessor, QuestionGenerator, QuestionEvaluator
 from dotenv import load_dotenv
+import re
 
 # Load environment variables
 load_dotenv()
@@ -75,12 +76,12 @@ def test_question_generation(vectorstore=None, texts=None):
     topic_data = {
         "subjectName": "Biology",
         "sectionName": "Life Process",
-        "questionType": "MCQ",
+        "questionType": "Short Answer",
         "classGrade": "10",
-        "difficulty": "Medium",
-        "bloomLevel": "Apply",
+        "difficulty": "Hard",
+        "bloomLevel": "Understand",
         "numQuestions": 2,
-        "additionalInstructions": "Focus on life process"
+        "additionalInstructions": ""
     }
     
     try:
@@ -104,7 +105,12 @@ def test_question_generation(vectorstore=None, texts=None):
         print("\n=== Generated Questions ===")
         if 'text' in questions:
             try:
-                parsed_questions = json.loads(questions['text'])
+                raw = questions['text']
+                # Remove markdown code block markers
+                cleaned = re.sub(r"^```json|```$", "", raw, flags=re.MULTILINE).strip()
+                parsed_questions = json.loads(cleaned)
+                if len(parsed_questions['questions']) != topic_data['numQuestions']:
+                    print(f"Warning: Requested {topic_data['numQuestions']} questions, but got {len(parsed_questions['questions'])}")
                 for i, q in enumerate(parsed_questions['questions'], 1):
                     print(f"\nQuestion {i}:")
                     print(f"Q: {q['question']}")
@@ -157,10 +163,10 @@ def test_question_evaluation(vectorstore=None, texts=None):
                 "sectionName": "Life Process",
                 "questionType": "MCQ",
                 "classGrade": "10",
-                "difficulty": "Medium",
-                "bloomLevel": "Apply",
+                "difficulty": "Hard",
+                "bloomLevel": "Understand",
                 "numQuestions": 2,
-                "additionalInstructions": "Focus on life process"
+                "additionalInstructions": ""
             }
             questions = generator.generate_questions(topic_data, vectorstore)
             parsed_questions = json.loads(questions['text'])
