@@ -10,6 +10,10 @@ from dotenv import load_dotenv
 from typing import Dict, List, Any, Optional, Tuple
 import logging
 from datetime import datetime
+from langchain_openai import OpenAIEmbeddings
+import re
+import json
+
 
 # Load environment variables
 load_dotenv()
@@ -24,11 +28,11 @@ class DocumentProcessor:
             separators=["\n\n", "\n", " ", ""]
         )
     
-    def process_uploaded_document(self, file_path: str) -> Tuple[Any, List[Any]]:
+    def process_uploaded_document(self, pdf_path, persist_directory=None) -> Tuple[Any, List[Any]]:
         """Process uploaded PDF document and create vector store"""
         try:
             # Load PDF using LangChain
-            loader = PyPDFLoader(file_path)
+            loader = PyPDFLoader(pdf_path)
             pages = loader.load()
             
             # Split text into chunks
@@ -39,11 +43,13 @@ class DocumentProcessor:
                 documents=texts,
                 embedding=self.embeddings
             )
-            
             # Save the vector store
-            vectorstore.save_local("./faiss_index")
+            if persist_directory:
+                vectorstore.save_local(persist_directory)
+            else:
+                vectorstore.save_local("./faiss_index")
             
-            logging.info(f"Successfully processed PDF '{file_path}' into {len(texts)} chunks.")
+            logging.info(f"Successfully processed PDF '{pdf_path}' into {len(texts)} chunks.")
             return vectorstore, texts
         except Exception as e:
             logging.error(f"Error processing document: {str(e)}")
@@ -52,7 +58,7 @@ class DocumentProcessor:
 class QuestionGenerator:
     def __init__(self):
         self.llm = ChatOpenAI(
-            model="gpt-4o-mini",  # Better than 3.5
+            model="gpt-4",  # Using GPT-4 for better quality
             temperature=0.3
         )
 
@@ -81,7 +87,7 @@ class QuestionGenerator:
                 {{
                     "question": "question text",
                     "options": ["option1", "option2", "option3", "option4"],
-                    "answer": "correct answer",
+                    "correctAnswer": "correct answer",
                     "explanation": "detailed explanation"
                 }}
             ]
@@ -99,28 +105,22 @@ class QuestionGenerator:
         self.chain = LLMChain(llm=self.llm, prompt=self.prompt)
     
     def generate_questions(self, topic_data: Dict[str, Any], vectorstore: Any) -> Dict[str, Any]:
-        """Generate questions based on topic data and vector store context"""
         try:
-            # Get relevant context from vectorstore
-            # relevant_docs = vectorstore.similarity_search(
-            #     f"{topic_data['subjectName']} {topic_data['sectionName']}",
-            #     k=3
-            # )
-
-            query = f"{topic_data['subjectName']} {topic_data['sectionName']} Grade {topic_data['classGrade']} Bloom level {topic_data['bloomLevel']}"
-            relevant_docs = vectorstore.similarity_search(query, k=5)
-
-
-            #context = "\n".join([doc.page_content for doc in relevant_docs])
-
-
-            from langchain.chains.summarize import load_summarize_chain
-            summarizer = load_summarize_chain(llm=self.llm, chain_type="stuff")
-            summary = summarizer.run(relevant_docs)
-
-            context = summary
+            # Initialize context as empty string
+            context = ""
             
-            # Generate questions
+            # Only do summarization if vectorstore exists
+            if vectorstore:
+                # Get relevant documents from vectorstore
+                docs = vectorstore.similarity_search(
+                    f"{topic_data['subjectName']} {topic_data['sectionName']}",
+                    k=3
+                )
+                # Use the raw context from documents
+                context = "\n".join(doc.page_content for doc in docs)
+                logging.info(f"Using context from vectorstore: {context[:100]}...")
+            
+            # Generate questions using the main chain
             response = self.chain.invoke({
                 "context": context,
                 "num_questions": topic_data['numQuestions'],
@@ -133,10 +133,50 @@ class QuestionGenerator:
                 "instructions": topic_data.get('additionalInstructions', '')
             })
             
-            logging.info(f"Generated questions for topic: {topic_data['sectionName']}")
-            return response
+            # Clean and parse the response
+            llm_output = response['text'] if isinstance(response, dict) and 'text' in response else response
+            logging.info(f"Raw LLM output before cleaning: {llm_output}")
+            
+            # Remove code block markers and leading 'json'
+            llm_output = llm_output.strip()
+            if llm_output.startswith('```'):
+                llm_output = re.sub(r'^```[a-zA-Z]*\s*', '', llm_output)
+                llm_output = re.sub(r'```$', '', llm_output)
+            llm_output = llm_output.strip()
+            
+            try:
+                result = json.loads(llm_output)
+            except Exception as e:
+                logging.error(f"Failed to parse LLM response as JSON: {e}\nRaw output: {llm_output}")
+                # Try to extract the first JSON object from the output
+                match = re.search(r'\{[\s\S]*\}', llm_output)
+                if match:
+                    json_str = match.group(0)
+                    try:
+                        result = json.loads(json_str)
+                        logging.info("Successfully parsed JSON after extracting from output.")
+                    except Exception as e2:
+                        logging.error(f"Still failed to parse extracted JSON: {e2}\nExtracted: {json_str}")
+                        raise
+                else:
+                    raise
+            
+            # Validate the result structure
+            if not isinstance(result, dict) or 'questions' not in result:
+                raise ValueError("Invalid response format: missing 'questions' key")
+            
+            # Validate each question
+            for i, q in enumerate(result['questions']):
+                missing_fields = [field for field in ['question', 'options', 'answer'] if field not in q]
+                if missing_fields:
+                    logging.error(f"Question {i} missing fields: {missing_fields}")
+                    logging.error(f"Question data: {json.dumps(q, indent=2)}")
+                    raise ValueError(f"Invalid question format: missing required fields {missing_fields}")
+            
+            return result
+            
         except Exception as e:
-            logging.error(f"Error generating questions: {str(e)}")
+            logging.error(f"Error generating questions: {e}")
             raise
 
 class QuestionEvaluator:
@@ -170,12 +210,12 @@ class QuestionEvaluator:
         """Evaluate the quality of a generated question"""
         try:
             logging.info(f"Evaluating question: {question['question']}")
-            logging.info(f"Answer: {question['answer']}")
+            logging.info(f"Answer: {question['correctAnswer']}")
             logging.info(f"Context length: {len(context)} characters")
             
             # Using the correct evaluation method
             evaluation = self.evaluator.evaluate_strings(
-                prediction=question['answer'],
+                prediction=question['correctAnswer'],
                 input=question['question'],
                 reference=context
             )

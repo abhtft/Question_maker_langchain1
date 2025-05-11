@@ -23,6 +23,16 @@ from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
 import tempfile
 from question_prompt import QuestionPromptGenerator
+from Utility.pdfmaker import CreatePDF
+import logging
+
+
+# Ensure 'logging' directory exists
+log_dir = "logging"
+os.makedirs(log_dir, exist_ok=True)
+
+# Create log filename with timestamp
+log_filename = f"{log_dir}/app_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
 # Load environment variables
 load_dotenv()
@@ -83,7 +93,7 @@ try:
         region_name=os.getenv('AWS_REGION', 'us-east-1')
     )
     S3_BUCKET = os.getenv('S3_BUCKET_NAME')
-    NOTES_BUCKET = os.getenv('NOTES_BUCKET_NAME', f"{S3_BUCKET}-notes")  # Separate bucket for notes
+    NOTES_BUCKET = os.getenv('NOTES_BUCKET_NAME')  # Separate bucket for notes
     print("✅ AWS S3 Connection Successful!")
 except Exception as e:
     print("❌ AWS S3 Connection Error:", e)
@@ -171,117 +181,6 @@ Example:
 }}
 """
 
-def create_pdf(questions, filename, class_grade='', subject_name=''):
-    # Create PDF in memory
-    pdf_buffer = io.BytesIO()
-    doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
-    styles = getSampleStyleSheet()
-    story = []
-    
-    # Define custom styles
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=20,
-        spaceAfter=30,
-        alignment=1,  # Center alignment
-        textColor='#2c3e50'  # Dark blue color
-    )
-    
-    header_style = ParagraphStyle(
-        'HeaderStyle',
-        parent=styles['Heading2'],
-        fontSize=14,
-        spaceAfter=20,
-        textColor='#34495e'  # Slightly lighter blue
-    )
-    
-    question_style = ParagraphStyle(
-        'QuestionStyle',
-        parent=styles['Normal'],
-        fontSize=12,
-        spaceAfter=10,
-        textColor='#2c3e50',
-        backColor='#f8f9fa',  # Light gray background
-        borderPadding=5,
-        borderColor='#dee2e6',
-        borderWidth=1
-    )
-    
-    option_style = ParagraphStyle(
-        'OptionStyle',
-        parent=styles['Normal'],
-        fontSize=11,
-        leftIndent=20,
-        spaceAfter=5,
-        textColor='#495057'
-    )
-    
-    answer_style = ParagraphStyle(
-        'AnswerStyle',
-        parent=styles['Normal'],
-        fontSize=12,
-        spaceAfter=10,
-        textColor='#28a745',  # Green color for answers
-        backColor='#e8f5e9',  # Light green background
-        borderPadding=5,
-        borderColor='#c8e6c9',
-        borderWidth=1
-    )
-    
-    explanation_style = ParagraphStyle(
-        'ExplanationStyle',
-        parent=styles['Normal'],
-        fontSize=11,
-        spaceAfter=20,
-        textColor='#6c757d',
-        leftIndent=20
-    )
-    
-    # Add title and paper details
-    story.append(Paragraph("QUESTION PAPER", title_style))
-    
-    # Add paper details
-    details = [
-        f"<b>Class:</b> {class_grade}",
-        f"<b>Subject:</b> {subject_name}",
-        f"<b>Total Questions:</b> {sum(len(topic.get('questions', [])) for topic in questions)}"
-    ]
-    
-    for detail in details:
-        story.append(Paragraph(detail, styles['Normal']))
-        story.append(Spacer(1, 5))
-    
-    story.append(Spacer(1, 20))
-    
-    # Add questions
-    for i, topic in enumerate(questions, 1):
-        # Add topic header
-        story.append(Paragraph(f"Topic {i}: {topic['topic']}", header_style))
-        story.append(Spacer(1, 10))
-        
-        # Add questions
-        for j, q in enumerate(topic['questions'], 1):
-            # Question text
-            story.append(Paragraph(f"Q{j}. {q['question']}", question_style))
-            
-            # Options (if MCQ)
-            if 'options' in q:
-                for opt in q['options']:
-                    story.append(Paragraph(f"• {opt}", option_style))
-            
-            # Answer
-            story.append(Paragraph(f"<b>Answer:</b> {q['answer']}", answer_style))
-            
-            # Explanation
-            story.append(Paragraph(f"<b>Explanation:</b> {q['explanation']}", explanation_style))
-            
-            # Add spacing between questions
-            story.append(Spacer(1, 15))
-    
-    doc.build(story)
-    pdf_buffer.seek(0)
-    return pdf_buffer
 
 @app.route('/')
 def serve():
@@ -303,6 +202,7 @@ def generate_cache_key(topic_data):
         'difficulty': topic_data.get('difficulty', ''),
         'bloom': topic_data.get('bloomLevel', ''),
         'intelligence': topic_data.get('intelligenceType', '')
+
     }
     return hashlib.md5(json.dumps(key_data, sort_keys=True).encode()).hexdigest()
 
@@ -391,65 +291,29 @@ async def generate_questions():
                 'subjectName': data.get('subjectName', ''),
                 'classGrade': data.get('classGrade', '')
             }
-            # Ensure numQuestions is an int
+            # Ensure numQuestions is int
             if 'numQuestions' in topic_data:
                 try:
                     topic_data['numQuestions'] = int(topic_data['numQuestions'])
                 except Exception:
-                    topic_data['numQuestions'] = 1  # fallback default
-            # Debug print
-            print("topic_data being sent to OpenAI:", topic_data)
-            
-            try:
-                # Check if PDF was uploaded (noteId exists)
-                if topic.get('noteId'):
-                    try:
-                        # Enhanced mode with PDF
-                        embeddings = OpenAIEmbeddings()
-                        vectorstore = Chroma(
-                            persist_directory="vectorstore",
-                            embedding_function=embeddings
-                        )
-                        
-                        # Generate questions using enhanced prompt
-                        questions = question_generator.generate_questions(topic_data, vectorstore)
-                        
-                        # Evaluate questions
-                        evaluated_questions = []
-                        for question in questions['questions']:
-                            evaluation = question_generator.evaluate_question(
-                                question,
-                                topic_data['sectionName']
-                            )
-                            if evaluation['score'] > 0.7:  # Only keep high-quality questions
-                                evaluated_questions.append(question)
-                        
-                        all_questions.append({
-                            'topic': topic_data['sectionName'],
-                            'questions': evaluated_questions,
-                            'cached': False
-                        })
-                    except Exception as e:
-                        print(f"Error in enhanced mode: {str(e)}")
-                        # Fallback to basic mode if enhanced mode fails
-                        questions = question_generator.generate_questions(topic_data)
-                        all_questions.append({
-                            'topic': topic_data['sectionName'],
-                            'questions': questions['questions'],
-                            'cached': False
-                        })
-                else:
-                    # Basic mode without PDF
-                    questions = question_generator.generate_questions(topic_data)
-                    all_questions.append({
-                        'topic': topic_data['sectionName'],
-                        'questions': questions['questions'],
-                        'cached': False
-                    })
-                
-            except Exception as e:
-                print(f"Error generating questions for topic {topic_data['sectionName']}: {str(e)}")
-                raise
+                    topic_data['numQuestions'] = 1
+
+            vectorstore = None
+            note_id = topic.get('noteId')
+            if note_id:
+                note = db['notes'].find_one({'_id': ObjectId(note_id)})
+                vectorstore_path = note.get('vectorstore_path') if note else None
+                if vectorstore_path and os.path.exists(vectorstore_path):
+                    embeddings = OpenAIEmbeddings()
+                    vectorstore = Chroma(persist_directory=vectorstore_path, embedding_function=embeddings)
+
+            # Use vectorstore if available, else fallback to general
+            questions = question_generator.generate_questions(topic_data, vectorstore)
+            all_questions.append({
+                'topic': topic_data.get('sectionName', ''),
+                'questions': questions['questions'],
+                'cached': False
+            })
         
         # Save generated questions to MongoDB
         paper_data = {
@@ -462,7 +326,7 @@ async def generate_questions():
 
         # Generate PDF and upload to S3
         pdf_filename = f"question_paper_{paper_id}.pdf"
-        pdf_buffer = create_pdf(all_questions, pdf_filename, class_grade=data.get('classGrade', ''), subject_name=data.get('subjectName', ''))
+        pdf_buffer = CreatePDF.generate(all_questions, pdf_filename, class_grade=data.get('classGrade', ''), subject_name=data.get('subjectName', ''))
         
         # Upload to S3
         try:
@@ -673,6 +537,38 @@ def get_notes():
             'success': False,
             'error': str(e)
         }), 500
+
+@app.route('/api/analyse-note', methods=['POST'])
+def analyse_note():
+    try:
+        data = request.json
+        note_id = data.get('note_id')
+        if not note_id:
+            return jsonify({'success': False, 'error': 'No note_id provided'}), 400
+
+        note = db['notes'].find_one({'_id': ObjectId(note_id)})
+        if not note:
+            return jsonify({'success': False, 'error': 'Note not found'}), 404
+
+        # Download PDF from S3 to a local path
+        local_pdf_path = f"temp_{note_id}.pdf"
+        s3_client.download_file(NOTES_BUCKET, note['filename'], local_pdf_path)
+
+        # Process with mylang1 to create vectorstore
+        vectorstore_path = f'vectorstores/{note_id}'
+        os.makedirs(vectorstore_path, exist_ok=True)
+        vectorstore, chunks = mylang4.document_processor.process_uploaded_document(local_pdf_path, persist_directory=vectorstore_path)
+
+        # Update note record with vectorstore path
+        db['notes'].update_one({'_id': ObjectId(note_id)}, {'$set': {'vectorstore_path': vectorstore_path}})
+
+        # Clean up local PDF
+        os.remove(local_pdf_path)
+
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Error in analyse_note: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.errorhandler(404)
 def not_found(e):

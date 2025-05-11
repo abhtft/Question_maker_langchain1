@@ -14,13 +14,11 @@ from botocore.exceptions import ClientError
 import io
 import asyncio
 import hashlib
-#from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 import mylang4  # Import the LangChain module
 from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
 #from question_prompt import QuestionPromptGenerator
-from langchain_community.vectorstores import FAISS
-from langchain_openai import OpenAIEmbeddings
 from Utility.pdfmaker import CreatePDF
 import logging
 import re
@@ -66,7 +64,7 @@ try:
     papers_collection = db[PAPER_COLLECTION]
     logging.info("✅ MongoDB Connection Successful!")
 except Exception as e:
-    logging.info(f"❌ MongoDB Connection Error: {e}")
+    logging.info("❌ MongoDB Connection Error:", e)
     db = None
 
 # Initialize OpenAI client
@@ -98,7 +96,7 @@ try:
     NOTES_BUCKET = os.getenv('NOTES_BUCKET_NAME')  # Separate bucket for notes
     logging.info("✅ AWS S3 Connection Successful!")
 except Exception as e:
-    logging.info(f"❌ AWS S3 Connection Error: {e}")
+    logging.info("❌ AWS S3 Connection Error:", e)
     s3_client = None
 
 
@@ -121,7 +119,7 @@ async def generate_questions():
     try:
         logging.info("Received request at /api/generate-questions")
         data = request.json
-        logging.info(f"Request data: {data}")
+        logging.info("Request data:", data)
 
         # Validate required fields
         required_fields = ['subjectName', 'classGrade', 'topics']
@@ -141,10 +139,11 @@ async def generate_questions():
         vectorstore_path = "vectorstores/latest"
         if os.path.exists(vectorstore_path):
             try:
-                
+                from langchain_community.vectorstores import FAISS
+                from langchain_openai import OpenAIEmbeddings
                 embeddings = OpenAIEmbeddings()
                 vectorstore = FAISS.load_local(vectorstore_path, embeddings, allow_dangerous_deserialization=True)
-                logging.info(f"Loaded vectorstore from {vectorstore_path}")
+                logging.info("Loaded vectorstore from", vectorstore_path)
             except Exception as e:
                 logging.info(f"Could not load vectorstore: {e}")
                 vectorstore = None
@@ -235,7 +234,7 @@ async def generate_questions():
         })
 
     except Exception as e:
-        logging.info(f"Error in /api/generate-questions: {str(e)}")
+        logging.info("Error in /api/generate-questions:", str(e))
         return jsonify({
             'success': False,
             'error': str(e)
@@ -349,12 +348,3 @@ if __name__ == '__main__':
         port=port,
         debug=True
     )
-
-
-'''
-taskl
-1.generate pdf with and without answer
-2.Working on improvement of question quality
-3.To understand the malang4 file
-
-'''

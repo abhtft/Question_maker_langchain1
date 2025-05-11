@@ -59,8 +59,6 @@ faiss_index/
 vectorstore/
 generated_questions.json
 *.pdf
-PDF_Testing/
-sample_pdf/
 temp/
 blob
 recording.wav
