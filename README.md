@@ -102,5 +102,8 @@ ssh -i abhi.pem ubuntu@ec2-43-204-212-194.ap-south-1.compute.amazonaws.com
  #feedback system in frontend
  #note taking feature are important
  #issue with the falsk async options
+
+ #installation correct verisons
+ 
  
 
