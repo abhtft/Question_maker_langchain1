@@ -135,6 +135,8 @@ python --version
 (venv) ubuntu@ip-172-31-15-143:~/Question_maker_langchain1$ sudo fallocate -l 2G /swapfile
 fallocate: fallocate failed: No space left on device
 (venv) ubuntu@ip-172-31-15-143:~/Question_maker_langchain1$
+
+following occupy some space in ubuntu (but one should know its usage)
 sudo fallocate -l 2G /swapfile
 sudo chmod 600 /swapfile
 sudo mkswap /swapfile
@@ -142,4 +144,31 @@ sudo swapon /swapfile
 sudo sysctl vm.swappiness=10
 sudo sysctl vm.vfs_cache_pressure=50
 
+#only to call required change
+git fetch origin
+git checkout origin/main -- requirements.txt
+
+#cleaning files
+
+# Clean package manager cache
+sudo apt-get clean
+sudo apt-get autoremove
+
+# Clean old logs
+sudo rm -rf /var/log/*.gz
+sudo rm -rf /var/log/*.old
+
+# Clean temporary files
+sudo rm -rf /tmp/*
+sudo rm -rf /var/tmp/*
+
+# Clean old git objects
+cd /home/ubuntu/Question_maker_langchain1
+git gc --prune=now
+
+# Remove any old virtual environments
+rm -rf venv
+
+# Clean pip cache
+pip cache purge
 
