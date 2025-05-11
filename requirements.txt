@@ -1,4 +1,3 @@
-
 # Database
 pymongo==4.6.1
 bson==0.5.10
@@ -40,8 +39,8 @@ numpy>=1.24.4
 pandas>=2.0.0
 scikit-learn>=1.3.0
 sentence-transformers>=2.2.2
-#torch==2.0.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
-torch>=2.0.0
+torch==2.4.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
+#torch>=2.0.0
 
 # Web framework (if needed)
 fastapi>=0.110.0

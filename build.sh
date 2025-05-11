@@ -144,9 +144,17 @@ sudo swapon /swapfile
 sudo sysctl vm.swappiness=10
 sudo sysctl vm.vfs_cache_pressure=50
 
+
+#virtual ram method
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
 #only to call required change
 git fetch origin
 git checkout origin/main -- requirements.txt
+
+pip install torch==2.4.1
 
 #cleaning files
 
@@ -169,9 +177,38 @@ git gc --prune=now
 # Remove any old virtual environments
 rm -rf venv
 
+python3.8 -m venv venv 
+source venv/bin/activate
 # Clean pip cache
 pip cache purge
 
 git fetch origin
 git diff --name-only HEAD origin/main
-git checkout origin/main -- README.md build.sh check_requirements.py requirements.txt
+git checkout origin/main -- requirements.txt
+
+python 3.8 -m venv venv
+source venv/bin/activate
+
+pip install torch==2.4.1
+
+
+ds -h
+
+
+Here's what we can do to free up space:
+Clean git history (since it's taking 148M):
+Apply to build.sh
+Run
+Clean the cache:
+Apply to build.sh
+Run
+Remove any old virtual environments:
+Apply to build.sh
+Run
+Clean up any temporary files:
+Apply to build.sh
+Run
+Clean package manager cache:
+Apply to build.sh
+Run
+Would you like me to help you execute these cleanup commands? This should free up several hundred megabytes of space.
