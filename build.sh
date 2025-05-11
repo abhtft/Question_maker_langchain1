@@ -172,3 +172,6 @@ rm -rf venv
 # Clean pip cache
 pip cache purge
 
+git fetch origin
+git diff --name-only HEAD origin/main
+git checkout origin/main -- README.md build.sh check_requirements.py requirements.txt

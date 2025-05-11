@@ -16,7 +16,7 @@ import asyncio
 import hashlib
 #from concurrent.futures import ThreadPoolExecutor
 import mylang4  # Import the LangChain module
-from langchain.vectorstores import Chroma
+#from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
 #from question_prompt import QuestionPromptGenerator
 from langchain_community.vectorstores import FAISS
