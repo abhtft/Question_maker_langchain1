@@ -48,7 +48,7 @@ git pull origin main
 
 namacheap _apssword: $Z%6.FWRYTY:m2
 
-
+git pull https://github.com/abhtft/Question_maker_langchain1.git
 
 #downloading pm2
 curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
@@ -273,7 +273,25 @@ Content-Type: application/json
 Content-Length: 36
 Access-Control-Allow-Origin: *
 Connection: close
+/--------It mwans app is running but not some proper
+
+
 
 ubuntu@ip-172-31-6-2:~$ cd 
 --
-flask is running
+flask is running------------
+
+-------------
+
+sudo apt update
+sudo apt install certbot -y
+
+sudo apt install python3-certbot-nginx -y
+
+
+sudo certbot --nginx -d prashnotri.com -d www.prashnotri.com
+
+sudo certbot renew --dry-run
+
+sudo systemctl restart nginx
+
