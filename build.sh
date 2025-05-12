@@ -56,9 +56,10 @@ sudo apt install nodejs -y
 sudo npm install -g pm2
 
 
-
+cd /home/ubuntu/Question_maker_langchain1
 
 pm2 start app.py --name "prashnotri" --interpreter python3
+#dist issue solved
 
 
 cd /home/ubuntu/Question_maker
@@ -96,7 +97,7 @@ pm2 stop prashnotri
 pip install --upgrade pip
 pip install -r requirements.txt
 
-pm2 start app.py --name "prashnotri" --interpreter /home/ubuntu/Question_maker/venv/bin/python
+pm2 start app.py --name "prashnotri" --interpreter /home/ubuntu/Question_maker_langchain1/venv/bin/python
 pm2 status
 pm2 logs prashnotri
 pm2 restart prashnotri
@@ -118,7 +119,7 @@ pm2 status && \
 pm2 logs prashnotri
 
 
-
+git clone https://github.com/abhtft/Question_maker_langchain1.git
 
 
 ---------------------------
@@ -187,9 +188,11 @@ python3.8 -m venv venv
 source venv/bin/activate
 ---------------------
 
-python3 -m venv venv
+python3.8 --version
+python3.8 -m venv venv
 #windows
 venv\Scripts\activate
+source venv/bin/activate
 
 python -m pip install --upgrade pip
 --------------
@@ -205,3 +208,72 @@ requirements.txt          # Core requirements
 requirements-dev.txt      # Development tools
 ----------------
 
+sudo apt install -y pkg-config libcairo2-dev
+
+
+nano .env---
+pm2 sintall
+----
+
+sudo apt update
+sudo apt install -y nodejs npm
+sudo npm install pm2 -g
+
+(venv) ubuntu@ip-172-31-6-2:~/Question_maker_langchain1$ nslookup www.prashnotri.com
+Server:         127.0.0.53
+Address:        127.0.0.53#53
+
+Non-authoritative answer:
+Name:   www.prashnotri.com
+Address: 13.203.101.41
+
+(venv) ubuntu@ip-172-31-6-2:~/Question_maker_langchain1$ 
+
+sudo apt install nginx -y
+
+
+(venv) ubuntu@ip-172-31-6-2:~/Question_maker_langchain1$ curl -I http://127.0.0.1:5000/
+HTTP/1.1 404 NOT FOUND
+Server: Werkzeug/3.0.6 Python/3.8.20
+Date: Mon, 12 May 2025 16:53:09 GMT
+Content-Type: application/json
+Content-Length: 36
+Access-Control-Allow-Origin: *
+Connection: close
+
+(venv) ubuntu@ip-172-31-6-2:~/Question_maker_langchain1$
+(venv) ubuntu@ip-172-31-6-2:~/Question_maker_langchain1$ curl -I http://127.0.0.1:5000/
+HTTP/1.1 404 NOT FOUND
+Server: Werkzeug/3.0.6 Python/3.8.20
+Date: Mon, 12 May 2025 16:53:09 GMT
+Content-Type: application/json
+Content-Length: 36
+Access-Control-Allow-Origin: *
+Connection: close
+
+(venv) ubuntu@ip-172-31-6-2:~/Question_maker_langchain1$
+
+(venv) ubuntu@ip-172-31-6-2:~/Question_maker_langchain1$ curl -I http://127.0.0.1:5000/
+HTTP/1.1 404 NOT FOUND
+Server: Werkzeug/3.0.6 Python/3.8.20
+Date: Mon, 12 May 2025 16:53:09 GMT
+Content-Type: application/json
+Content-Length: 36
+Access-Control-Allow-Origin: *
+Connection: close
+
+(venv) ubuntu@ip-172-31-6-2:~/Question_maker_langchain1$
+--
+Last login: Mon May 12 15:47:27 2025 from 49.205.255.249
+ubuntu@ip-172-31-6-2:~$ curl -I http://127.0.0.1:5000/
+HTTP/1.1 404 NOT FOUND
+Server: Werkzeug/3.0.6 Python/3.8.20
+Date: Mon, 12 May 2025 17:07:53 GMT
+Content-Type: application/json
+Content-Length: 36
+Access-Control-Allow-Origin: *
+Connection: close
+
+ubuntu@ip-172-31-6-2:~$ cd 
+--
+flask is running
