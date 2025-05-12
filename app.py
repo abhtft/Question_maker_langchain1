@@ -1,8 +1,25 @@
+import os
+import logging
+from datetime import datetime, timedelta
+
+log_dir = "logging"
+os.makedirs(log_dir, exist_ok=True)
+log_filename = f"{log_dir}/app_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+logging.basicConfig(
+    filename=log_filename,
+    level=logging.INFO,
+    format='%(message)s'
+)
+logging.info("Test log entry: Logging is working.")
+
+print("Logging to:", os.path.abspath(log_filename))  # Add this for debugging
+
+
+
 from flask import Flask, request, jsonify, send_from_directory, make_response
 from flask_cors import CORS
 from pymongo import MongoClient
-from datetime import datetime, timedelta
-import os
+
 from dotenv import load_dotenv
 import pytz
 import openai
@@ -22,21 +39,10 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 from Utility.pdfmaker import CreatePDF
-import logging
+
 import re
-
-# Ensure 'logging' directory exists
-log_dir = "logging"
-os.makedirs(log_dir, exist_ok=True)
-
-# Create log filename with timestamp
-log_filename = f"{log_dir}/app_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-
-logging.basicConfig(
-    filename=log_filename,
-    level=logging.INFO,
-    format='%(message)s'
-)
+import gc
+import psutil
 
 # Load environment variables
 load_dotenv()
@@ -101,6 +107,22 @@ except Exception as e:
     logging.info(f"❌ AWS S3 Connection Error: {e}")
     s3_client = None
 
+# Add memory monitoring function
+def monitor_memory():
+    process = psutil.Process(os.getpid())
+    memory_info = process.memory_info()
+    return memory_info.rss / 1024 / 1024  # Convert to MB
+
+# Add cleanup function
+def cleanup_memory():
+    gc.collect()
+    if hasattr(psutil.Process(), "memory_maps"):
+        for proc in psutil.process_iter(['pid', 'name']):
+            if proc.info['name'] == 'python':
+                try:
+                    proc.kill()
+                except:
+                    pass
 
 @app.route('/')
 def serve():
@@ -115,65 +137,70 @@ def serve_static(path):
 
 # Initialize the question generator
 #question_generator = QuestionPromptGenerator()
-
 @app.route('/api/generate-questions', methods=['POST'])
-async def generate_questions():
+def generate_questions():
     try:
         logging.info("Received request at /api/generate-questions")
-        data = request.json
-        logging.info(f"Request data: {data}")
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
 
         # Validate required fields
         required_fields = ['subjectName', 'classGrade', 'topics']
         for field in required_fields:
             if field not in data:
-                return jsonify({
-                    'success': False,
-                    'error': f"Missing required field: {field}"
-                }), 400
+                return jsonify({'success': False, 'error': f"Missing required field: {field}"}), 400
 
-        # Save request to MongoDB
+        # Insert request metadata
         data['created_at'] = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S')
         request_id = requests_collection.insert_one(data).inserted_id
 
-        # --- Load vectorstore if it exists ---
-        vectorstore = None
+        # Load vectorstore if exists
         vectorstore_path = "vectorstores/latest"
+        vectorstore = None
         if os.path.exists(vectorstore_path):
             try:
-                
                 embeddings = OpenAIEmbeddings()
                 vectorstore = FAISS.load_local(vectorstore_path, embeddings, allow_dangerous_deserialization=True)
                 logging.info(f"Loaded vectorstore from {vectorstore_path}")
             except Exception as e:
-                logging.info(f"Could not load vectorstore: {e}")
-                vectorstore = None
+                logging.warning(f"Vectorstore load failed: {e}")
 
-        # Generate questions for all topics
+        # Generate questions for each topic in batches
         all_questions = []
         for topic in data['topics']:
             topic_data = {
                 **topic,
-                'subjectName': data.get('subjectName', ''),
-                'classGrade': data.get('classGrade', '')
+                'subjectName': data['subjectName'],
+                'classGrade': data['classGrade']
             }
-            # Ensure numQuestions is int
-            if 'numQuestions' in topic_data:
-                try:
-                    topic_data['numQuestions'] = int(topic_data['numQuestions'])
-                except Exception:
-                    topic_data['numQuestions'] = 1
 
-            # Use vectorstore if available, else fallback to general
-            questions = mylang4.question_generator.generate_questions(topic_data, vectorstore)
+            try:
+                num_qs = int(topic.get('numQuestions', 1))
+            except ValueError:
+                num_qs = 1
+
+            batch_size = 5
+            topic_questions = []
+
+            for i in range(0, num_qs, batch_size):
+                current_batch = min(batch_size, num_qs - i)
+                batch_data = {**topic_data, 'numQuestions': current_batch}
+
+                questions = mylang4.question_generator.generate_questions(batch_data, vectorstore)
+                topic_questions.extend(questions['questions'])
+
+                # Free memory
+                gc.collect()
+
             all_questions.append({
-                'topic': topic_data.get('sectionName', ''),
-                'questions': questions['questions'],
+                'topic': topic.get('sectionName', ''),
+                'questions': topic_questions,
                 'cached': False
             })
-        #catching means bringing questions from past based on smae settings.
 
-        # Save generated questions to MongoDB
+        # Save to MongoDB
         paper_data = {
             'request_id': str(request_id),
             'questions': all_questions,
@@ -182,43 +209,29 @@ async def generate_questions():
         }
         paper_id = papers_collection.insert_one(paper_data).inserted_id
 
-        # Generate PDF and upload to S3
+        # Generate PDFs
         pdf_filename = f"question_paper_{paper_id}.pdf"
-        pdf_buffer = CreatePDF.generate(all_questions, pdf_filename, class_grade=data.get('classGrade', ''), subject_name=data.get('subjectName', ''))
+        pdf_buffer = CreatePDF.generate(
+            all_questions,
+            pdf_filename,
+            class_grade=data['classGrade'],
+            subject_name=data['subjectName']
+        )
 
-        # Upload to S3
-        try:
-            s3_client.upload_fileobj(
-                pdf_buffer,
-                S3_BUCKET,
-                pdf_filename,
-                ExtraArgs={'ContentType': 'application/pdf'}
-            )
-            logging.info(f"PDF uploaded to S3: {pdf_filename}")
-            url = s3_client.generate_presigned_url(
-                'get_object',
-                Params={
-                    'Bucket': S3_BUCKET,
-                    'Key': pdf_filename
-                },
-                ExpiresIn=3600
-            )
+        s3_client.upload_fileobj(
+            pdf_buffer,
+            S3_BUCKET,
+            pdf_filename,
+            ExtraArgs={'ContentType': 'application/pdf'}
+        )
 
-        except Exception as e:
-            logging.info(f"Error with S3: {e}")
-            url = None
+        pdf_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET, 'Key': pdf_filename},
+            ExpiresIn=3600
+        )
 
-        
-        # After PDF generation and S3 upload
-        local_pdf_path = 'temp_uploads/latest.pdf'
-        if os.path.exists(local_pdf_path):
-            try:
-                os.remove(local_pdf_path)
-                logging.info(f"Cleaned up temporary PDF file: {local_pdf_path}")
-            except Exception as e:
-                logging.warning(f"Failed to delete temporary PDF: {e}")
-
-        # Clean up vectorstore directory if it exists 
+        # Final cleanups
         if os.path.exists(vectorstore_path):
             try:
                 import shutil
@@ -226,20 +239,20 @@ async def generate_questions():
                 logging.info(f"Cleaned up vectorstore directory: {vectorstore_path}")
             except Exception as e:
                 logging.warning(f"Failed to delete vectorstore directory: {e}")
+
         
+
         return jsonify({
             'success': True,
             'paper_id': str(paper_id),
             'questions': all_questions,
-            'pdf_url': url
+            'pdf_url': pdf_url
         })
 
     except Exception as e:
-        logging.info(f"Error in /api/generate-questions: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        logging.error(f"Exception in /generate-questions: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/api/download-pdf/<paper_id>', methods=['GET'])
 def download_pdf(paper_id):
@@ -284,6 +297,7 @@ def upload_note():
         temp_folder = 'temp_uploads'
         os.makedirs(temp_folder, exist_ok=True)
         local_path = os.path.join(temp_folder, 'latest.pdf')
+        logging.info(f"Saving file to: {local_path}")
         file.save(local_path)
 
         # Upload to S3 (no metadata)
@@ -293,7 +307,7 @@ def upload_note():
             filename,
             ExtraArgs={'ContentType': 'application/pdf'}
         )
-
+        logging.info(f"File uploaded to S3: {filename}")
         # Save note metadata to MongoDB
         note_data = {
             'filename': filename,

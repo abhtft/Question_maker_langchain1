@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#automate for unix like system
+
+
 echo "Starting build process..."
 
 python -m venv venv
@@ -14,7 +17,7 @@ venv\Scripts\deactivate
 pip install --upgrade pip
 pip install -r requirements.txt && npm run build && python app.py #always use user word
 python check_requirements.py
-python test_langchain.py
+
 
 npm run build && python app.py
 
@@ -70,6 +73,8 @@ pip install -r requirements.txt
   sudo ln -s /etc/nginx/sites-available/prashnotri.com /etc/nginx/sites-enabled/
   sudo nginx -t
   sudo systemctl restart nginx
+
+
   
 
   
@@ -101,7 +106,7 @@ pm2 save
 pm2 startup
 
 
-git pull https://github.com/abhtft/Question_maker_langchain1.git
+--------------------------
 
 cd Question_maker_langchain1 && \
  && \
@@ -115,28 +120,9 @@ pm2 logs prashnotri
 
 
 
-git clone https://github.com/abhtft/Question_maker_langchain1.git
-#GOOD TO CHECK FILES
 
-rm -rf venv      - deleting old folder
-
-#special care which version to install
-
-
-sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt update
-sudo apt install python3.8 python3.8-venv python3.8-dev
-python3.8 -m venv venv
-source venv/bin/activate
-python --version
-
-#deactivate
-
-(venv) ubuntu@ip-172-31-15-143:~/Question_maker_langchain1$ sudo fallocate -l 2G /swapfile
-fallocate: fallocate failed: No space left on device
-(venv) ubuntu@ip-172-31-15-143:~/Question_maker_langchain1$
-
-following occupy some space in ubuntu (but one should know its usage)
+---------------------------
+#following occupy some space in ubuntu (but one should know its usage,less usefull)
 sudo fallocate -l 2G /swapfile
 sudo chmod 600 /swapfile
 sudo mkswap /swapfile
@@ -144,20 +130,29 @@ sudo swapon /swapfile
 sudo sysctl vm.swappiness=10
 sudo sysctl vm.vfs_cache_pressure=50
 
+---------------
+git fetch origin #Update your local representation of the remote repository
+git diff --name-only HEAD origin/main
+git checkout origin/main -- requirements.txt #finally updates local
 
-#virtual ram method
-sudo fallocate -l 2G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-#only to call required change
-git fetch origin
-git checkout origin/main -- requirements.txt
+git pull
+#Purpose: Fetches and integrates changes from a remote repository
+#Usage: git pull [remote] [branch]
+#Effect: Combines git fetch and git merge in one command
+git pull https://github.com/abhtft/Question_maker_langchain1.git
 
-pip install torch==2.4.1
+
+git status
+git add . # Stages changes for the next commit(boggie)
+git commit -m "commit message"[] #Records changes to the repository(engine)
+git push origin main #Uploads local repository content to a remote repository(travel)
+--------------
+pip install torch==2.4.1(only under venv)
+
 
 #cleaning files
-
+#(ubuntu commands)
+--------------------------
 # Clean package manager cache
 sudo apt-get clean
 sudo apt-get autoremove
@@ -176,39 +171,37 @@ git gc --prune=now
 
 # Remove any old virtual environments
 rm -rf venv
-
-python3.8 -m venv venv 
-source venv/bin/activate
-# Clean pip cache
-pip cache purge
-
-git fetch origin
-git diff --name-only HEAD origin/main
-git checkout origin/main -- requirements.txt
-
-python 3.8 -m venv venv
-source venv/bin/activate
-
-pip install torch==2.4.1
-
+-----------------------------
 
 ds -h
+sudo growpart /dev/xvda 1
+sudo resize2fs /dev/xvda1
 
+#installing sepcific python version
+sudo apt-get update
+sudo apt-get install software-properties-common
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt-get update
+sudo apt-get install python3.8 python3.8-venv python3.8-dev
+python3.8 -m venv venv
+source venv/bin/activate
+---------------------
 
-Here's what we can do to free up space:
-Clean git history (since it's taking 148M):
-Apply to build.sh
-Run
-Clean the cache:
-Apply to build.sh
-Run
-Remove any old virtual environments:
-Apply to build.sh
-Run
-Clean up any temporary files:
-Apply to build.sh
-Run
-Clean package manager cache:
-Apply to build.sh
-Run
-Would you like me to help you execute these cleanup commands? This should free up several hundred megabytes of space.
+python3 -m venv venv
+#windows
+venv\Scripts\activate
+
+python -m pip install --upgrade pip
+--------------
+	2. Specify Versions: Use version specifiers to prevent unexpected updates:
+# In requirements.txt
+package==1.2.3    # Exact version
+package>=1.2.3    # Minimum version
+package~=1.2      # Compatible version (1.2.x)
+-------------------
+
+Split Requirements: Separate dev and production dependencies:
+requirements.txt          # Core requirements
+requirements-dev.txt      # Development tools
+----------------
+

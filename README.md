@@ -97,7 +97,9 @@ Let me know if you want this as a markdown file, or if you want to add/change an
 
 
 cd C:\Users\Abhishek\Desktop\pem_work
+
 ssh -i "abhi.pem" ubuntu@ec2-65-0-135-47.ap-south-1.compute.amazonaws.com
+
 65.0.135.47
 
  #feedback system in frontend
@@ -105,5 +107,7 @@ ssh -i "abhi.pem" ubuntu@ec2-65-0-135-47.ap-south-1.compute.amazonaws.com
  #issue with the falsk async options
 
  #installation correct verisons
+
+ 
  
 
